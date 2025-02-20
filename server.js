@@ -32,13 +32,20 @@ app.post('/create-video', (req, res) => {
       return res.status(500).json({ error: err.message });
     }
 
-    // Überprüfe, ob genau 6 Bilder und 6 Audios hochgeladen wurden
-    if (
-      !req.files.images || !req.files.audios ||
-      req.files.images.length !== 6 || req.files.audios.length !== 6
-    ) {
+    // Ermittele, wie viele Bilder und Audios tatsächlich hochgeladen wurden
+    const imagesCount = req.files.images ? req.files.images.length : 0;
+    const audiosCount = req.files.audios ? req.files.audios.length : 0;
+    
+    if (imagesCount !== 6 || audiosCount !== 6) {
       return res.status(400).json({
-        error: 'Es müssen genau 6 Bilder (images) und 6 Audios (audios) hochgeladen werden.'
+        error: 'Es müssen genau 6 Bilder (images) und 6 Audios (audios) hochgeladen werden.',
+        received: {
+          imagesCount,
+          audiosCount,
+          // Zeige die Feldnamen (falls vorhanden)
+          imagesFields: req.files.images ? req.files.images.map(file => file.fieldname) : [],
+          audiosFields: req.files.audios ? req.files.audios.map(file => file.fieldname) : []
+        }
       });
     }
 
