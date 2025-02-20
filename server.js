@@ -15,8 +15,8 @@ if (!fs.existsSync(uploadFolder)) {
 
 // Konfiguriere Multer: erwarte Felder "images" und "audios"
 const upload = multer({ dest: uploadFolder }).fields([
-  { name: 'images', maxCount: 6 },
-  { name: 'audios', maxCount: 6 }
+  { name: 'images', maxCount: 100 },
+  { name: 'audios', maxCount: 100 }
 ]);
 
 // Test-Endpunkt
@@ -32,15 +32,14 @@ app.post('/create-video', (req, res) => {
       return res.status(500).json({ error: err.message });
     }
 
-    // Debug-Ausgabe: Zeige an, welche Felder empfangen wurden
+    // Ermittele, wie viele Bilder und Audios tatsächlich hochgeladen wurden
     const imagesCount = req.files.images ? req.files.images.length : 0;
     const audiosCount = req.files.audios ? req.files.audios.length : 0;
-    console.log("Empfangene Bilder:", req.files.images ? req.files.images.map(file => file.fieldname) : []);
-    console.log("Empfangene Audios:", req.files.audios ? req.files.audios.map(file => file.fieldname) : []);
-
-    if (imagesCount !== 6 || audiosCount !== 6) {
+    
+    // Prüfe, ob die Anzahl Bilder und Audios gleich und mindestens 1 ist
+    if (imagesCount !== audiosCount || imagesCount === 0) {
       return res.status(400).json({
-        error: 'Es müssen genau 6 Bilder (images) und 6 Audios (audios) hochgeladen werden.',
+        error: 'Die Anzahl der Bilder (images) und Audios (audios) muss gleich sein und mindestens 1 betragen.',
         received: {
           imagesCount,
           audiosCount,
@@ -50,11 +49,14 @@ app.post('/create-video', (req, res) => {
       });
     }
 
+    console.log("Empfangene Bilder:", req.files.images.map(file => file.fieldname));
+    console.log("Empfangene Audios:", req.files.audios.map(file => file.fieldname));
+
     // Hole die Dateipfade
     const imagePaths = req.files.images.map(file => file.path);
     const audioPaths = req.files.audios.map(file => file.path);
 
-    // Zusätzliche Debug-Ausgabe: Zeige auch Dateinamen, MIME-Typen und -Größen der Audios
+    // Zusätzliche Debug-Ausgabe: Zeige Dateinamen, MIME-Typen und -Größen der Audios
     req.files.audios.forEach((file, index) => {
       console.log(`Audio ${index+1}: filename=${file.originalname}, mimeType=${file.mimetype}, size=${file.size}`);
     });
@@ -62,12 +64,11 @@ app.post('/create-video', (req, res) => {
     const videoParts = [];
 
     // Für jedes Bild-Audio-Paar: Erstelle ein kurzes Video
-    for (let i = 0; i < 6; i++) {
+    for (let i = 0; i < imagesCount; i++) {
       const outputVideo = path.join(uploadFolder, `video${i + 1}.mp4`);
       videoParts.push(outputVideo);
 
       // FFmpeg-Befehl für ein Teilvideo
-      // Wir nehmen an, dass die Bilder (unabhängig vom Format) und Audios korrekt gespeichert sind.
       const cmd = `ffmpeg -y -loop 1 -i ${imagePaths[i]} -i ${audioPaths[i]} -c:v libx264 -c:a aac -b:a 192k -shortest -pix_fmt yuv420p ${outputVideo}`;
       console.log(`Starte FFmpeg für Paar ${i+1}:`, cmd);
       try {
